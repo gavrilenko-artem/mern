@@ -1,12 +1,14 @@
 import express from "express";
-import jwt from "jsonwebtoken";
-import bcrypt from "bcrypt";
 import mongoose from "mongoose";
-import { validationResult } from "express-validator";
+import {
+  registerValidation,
+  loginValidation,
+  postCreateValidation,
+} from "./validations/validations.js";
+import checkAuth from "./utils/checkAuth.js";
 
-import { registerValidation } from "./validations/auth.js";
-
-import UserModel from "./models/Usrer.js";
+import * as UserController from "./controllers/UserController.js";
+import * as PostController from "./controllers/PostController.js";
 
 mongoose
   .connect(
@@ -22,35 +24,21 @@ app.get("/", (req, res) => {
   res.send("Holla!");
 });
 
-app.post("/auth/register", registerValidation, async (req, res) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return res.status(400).json(errors.array());
-    }
+app.post("/auth/login", loginValidation, UserController.login);
 
-    const password = req.body.password;
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
+app.post("/auth/register", registerValidation, UserController.register);
 
-    const document = UserModel({
-      email: req.body.email,
-      fullName: req.body.fullName,
-      avatarUrl: req.body.avatarUrl,
-      passwordHash,
-    });
+app.get("/auth/me", checkAuth, UserController.getMe);
 
-    const user = await document.save();
+app.post("/posts", checkAuth, postCreateValidation, PostController.create);
 
-    res.json(user);
-  } catch (err) {
-    console.log(err);
+app.get("/posts", PostController.getAll);
 
-    res.status(500).json({
-      message: "Failed to register",
-    });
-  }
-});
+app.get("/posts/:id", PostController.getOne);
+
+app.patch("/posts/:id", checkAuth, PostController.update);
+
+app.delete("/posts/:id", checkAuth, PostController.remove);
 
 app.listen(4000, (err) => {
   if (err) {
